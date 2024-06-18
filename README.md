@@ -3,7 +3,9 @@
 [![Docker Image Version (tag latest semver)](https://img.shields.io/docker/v/algosstile/grpc-wiremock/1.3.7?logo=docker)](https://hub.docker.com/repository/docker/algosstile/grpc-wiremock/general)
 
 # Обзор
-grpc-wiremock — это **сервер моков** для **GRPC** сервисов, реализованный как обёртка вокруг http-сервера [WireMock](http://wiremock.org## Как это работает
+grpc-wiremock — это **сервер моков** для **GRPC** сервисов, реализованный как обёртка вокруг http-сервера [WireMock](http://wiremock.org)
+
+## Как это работает
 
 <p align="center">
   <img src="doc/overview.drawio.svg"/>
