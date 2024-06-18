@@ -2,26 +2,24 @@
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/algosstile/grpc-wiremock?label=build&logo=docker)](https://hub.docker.com/repository/docker/algosstile/grpc-wiremock/builds)
 [![Docker Image Version (tag latest semver)](https://img.shields.io/docker/v/algosstile/grpc-wiremock/1.3.7?logo=docker)](https://hub.docker.com/repository/docker/algosstile/grpc-wiremock/general)
 
-# Overview
-grpc-wiremock is a **mock server** for **GRPC** services implemented as a wrapper around the [WireMock](http://wiremock.org) http server.
-
-## How It Works
+# Обзор
+grpc-wiremock — это **сервер моков** для **GRPC** сервисов, реализованный как обёртка вокруг http-сервера [WireMock](http://wiremock.org## Как это работает
 
 <p align="center">
   <img src="doc/overview.drawio.svg"/>
 </p>
 
-*grpc-wiremock* starts a gRPC server generated based on provided proto files which will convert a proto grpc request to JSON and redirects it as a POST request to the WireMock then converts a http response back to grpc proto format.
-1. GRPC server works on `tcp://localhost:50000`
-2. WireMock server works on `http://localhost:8888`
+*grpc-wiremock* запускает gRPC-сервер, сгенерированный на основе предоставленных proto-файлов, который конвертирует proto gRPC-запрос в JSON и перенаправляет его как POST-запрос на WireMock, затем конвертирует http-ответ обратно в gRPC proto-формат.
+1. GRPC-сервер работает на `tcp://localhost:50000`
+2. WireMock-сервер работает на `http://localhost:8888`
 
-## Quick Usage
-1) Run 
+## Быстрое использование
+1) Запустите
 ```posh
-docker run -p 8888:8888 -p 50000:50000 -v $(pwd)/example/proto:/proto -v $(pwd)/example/wiremock:/wiremock algosstile/grpc-wiremock
+docker run -p 8888:8888 -p 50000:50000 -v $(pwd)/example/proto:/proto -v $(pwd)/example/wiremock:/wiremock adven27/grpc-wiremock 
 ```
 
-2) Stub 
+2) Настройте мок
 ```posh
 curl -X POST http://localhost:8888/__admin/mappings \
   -d '{
@@ -45,12 +43,12 @@ curl -X POST http://localhost:8888/__admin/mappings \
 }'
 ```
 
-3) Check 
+3) Проверьте
 ```posh
 grpcurl -H 'withAmount: 100.0' -plaintext -d '{"user_id": 1, "currency": "EUR"}' localhost:50000 api.wallet.BalanceService/getUserBalance
 ```
 
-Should get response:
+Должны получить ответ:
 ```json
 {
   "balance": {
@@ -67,7 +65,7 @@ Should get response:
   }
 }
 ```
-## Stubbing
+## Настройка моков
 
 Stubbing should be done via [WireMock JSON API](http://wiremock.org/docs/stubbing/) 
 
@@ -89,8 +87,8 @@ Default error (not `200 OK`) mapping is based on https://github.com/googleapis/g
 | 503 Service Unavailable   | UNAVAILABLE        |
 | 504 Gateway Timeout       | DEADLINE_EXCEEDED  |
 
-And could be overridden or augmented by overriding or augmenting the following properties:
-```yaml
+И может быть переопределён или дополнен путём изменения или дополнения следующих свойств:
+```yml
 grpc:
   error-code-by:
     http:
@@ -107,18 +105,18 @@ grpc:
         503: UNAVAILABLE
         504: DEADLINE_EXCEEDED
 ```
-For example:
+Например:
 ```posh
 docker run \
     -e GRPC_ERRORCODEBY_HTTP_STATUSCODE_400=OUT_OF_RANGE \
     -e GRPC_ERRORCODEBY_HTTP_STATUSCODE_510=DATA_LOSS \
     algosstile/grpc-wiremock
 ```
-## How To:
+## Как настроить:
 
-### 1. Configure gRPC server
+### 1. Настроить gRPC сервер
 
-Currently, following grpc server properties are supported:
+В настоящее время поддерживаются следующие свойства gRPC сервера:
 
 ```properties
 GRPC_SERVER_PORT
@@ -128,13 +126,13 @@ GRPC_SERVER_MAXINBOUNDMETADATASIZE
 GRPC_SERVER_MAXINBOUNDMESSAGESIZE
 ```
 
-Could be used like this:
+Можно использовать так:
 
 ```posh
 docker run -e GRPC_SERVER_MAXHEADERLISTSIZE=1000 algosstile/grpc-wiremock
 ```
 
-### 2. Configure WireMock server
+### 2. Настроить WireMock сервер
 
 WireMock server may be configured by passing [command line options](http://wiremock.org/docs/running-standalone/) 
 prefixed by `wiremock_`:
@@ -143,9 +141,9 @@ prefixed by `wiremock_`:
 docker run -e WIREMOCK_DISABLE-REQUEST-LOGGING -e WIREMOCK_PORT=0 algosstile/grpc-wiremock
 ```
 
-### 3. Mock server-side streaming:
+### 3. Мок серверного потока:
 
-Given the service:
+Для сервиса:
 
 ```protobuf
 service WalletService {
@@ -153,10 +151,10 @@ service WalletService {
 }
 ```
 
-Then the following stub may be provided, where `response.headers.streamSize` specifies 
-how many responses should be returned during the stream (`1` - if absent).
+Можно предоставить следующий мок, где response.headers.streamSize указывает,
+сколько ответов должно быть возвращено во время потока (1 - если отсутствует).
 
-The current response iteration number is available in `request.headers.streamCursor`:
+Текущий номер итерации ответа доступен в request.headers.streamCursor:
 
 ```posh
 curl -X POST http://localhost:8888/__admin/mappings \
@@ -192,18 +190,18 @@ curl -X POST http://localhost:8888/__admin/mappings \
 }'
 ```
 
-### 4. Speed up container start
+### 4. Ускорить запуск контейнера
 
-In case you don't need to change proto files, you can build your own image with precompiled protos.  
-See an [example](/example/Dockerfile)
+Если вам не нужно изменять proto-файлы, вы можете собрать свой собственный образ с предварительно скомпилированными protos.
+Смотрите [пример](/example/Dockerfile
 
-### 5. Use with snappy compresser/decompresser
+### 5. Использовать со сжатием/распаковкой snappy
 
-Snappy support can be enabled using `EXTERNAL_CODECS` env variable as follows:
+Поддержка snappy может быть включена с помощью переменной среды EXTERNAL_CODECS следующим образом:
 ```posh
 docker run -e EXTERNAL_CODECS="snappy, another" algosstile/grpc-wiremock
 ```
-Also in docker-compose:
+Также в docker-compose:
 ```posh
     image: algosstile/grpc-wiremock
     ports:
@@ -214,12 +212,11 @@ Also in docker-compose:
     environment:
       - EXTERNAL_CODECS=snappy
 ```
-<sub>*gzip compression supported by default</sub>
+<sub>*поддержка сжатия gzip включена по умолчанию</sub>
 
-### 6. Use in load testing
-
-To increase performance some Wiremock related options may be tuned either directly or by enabling the "load" profile. 
-Next two commands are identical:
+### 6. Использовать в нагрузочном тестировании
+Для увеличения производительности некоторые опции Wiremock могут быть настроены напрямую или путём включения профиля "load".
+Следующие две команды идентичны:
 ```posh
 docker run -e SPRING_PROFILES_ACTIVE=load algosstile/grpc-wiremock
 ```
@@ -232,9 +229,9 @@ docker run \
   algosstile/grpc-wiremock
 ```
 
-### 7. Preserving proto field names in stubs
-
-By default, stub mappings must have proto fields references in lowerCamlCase, e.g. proto field `user_id` must be referenced as:
+### 7. Сохранение имен полей proto в заглушках
+По умолчанию, в маппингах заглушек должны использоваться ссылки на поля proto в формате lowerCamlCase, 
+например, поле proto user_id должно быть указано как:
 
 ```json
 {
@@ -246,7 +243,7 @@ By default, stub mappings must have proto fields references in lowerCamlCase, e.
 }
 ```
 
-To preserve proto field names the following env variable could be used:
+Для сохранения имен полей proto может быть использована следующая переменная окружения:
 
 ```posh
 docker run -e JSON_PRESERVING_PROTO_FIELD_NAMES=true algosstile/grpc-wiremock
