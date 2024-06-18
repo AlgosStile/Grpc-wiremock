@@ -1,0 +1,118 @@
+plugins {
+    id 'org.springframework.boot' version '2.6.2'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
+    id 'com.google.protobuf' version '0.8.16'
+}
+
+group = 'io.algo.grpc.wiremock'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '17'
+
+repositories {
+    mavenCentral()
+}
+
+def grpcVersion = '1.44.1'
+def wiremockVersion = '2.32.0'
+def protobufVersion = '3.16.0'
+def protocVersion = protobufVersion
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation "io.grpc:grpc-all:$grpcVersion"
+    implementation "com.github.tomakehurst:wiremock-jre8-standalone:$wiremockVersion"
+    implementation 'org.xerial.snappy:snappy-java:1.1.8.4'
+}
+
+protobuf {
+    protoc { artifact = "com.google.protobuf:protoc:${protocVersion}" }
+    plugins { grpc { artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}" } }
+    generateProtoTasks { all()*.plugins { grpc { outputSubDir = 'java' } } }
+    generatedFilesBaseDir = 'src'
+}
+
+clean {
+    delete fileTree(dir: "src/main/java", exclude: "io/algo/grpc/wiremock")
+    delete "src/main/java/io/algo/grpc/wiremock/Translator.java"
+}
+
+sourceSets.main.proto.srcDir '/proto'
+
+task generateJava(type: Copy) {
+    def decorate_services = ""
+    def import_services = ""
+    def services = ""
+    doFirst {
+        def callDecoratorTemplate = """
+        private final Map<String, Class> @fullServiceName@RespTypes = new HashMap<>(){{
+            @resp_types@
+        }}; 
+        private final Map<String, String> @fullServiceName@MethodTypes = new HashMap<>(){{
+            @method_types@
+        }}; 
+        @Around("execution(* @package@.@serviceName@Grpc.@serviceName@ImplBase.*(..))")
+        public void redirect@fullServiceName@(ProceedingJoinPoint jp) throws Throwable { redirect(jp, "@serviceName@", @fullServiceName@RespTypes, @fullServiceName@MethodTypes); }
+        """
+
+        def importServiceTemplate = "import @package@.@serviceName@Grpc;\n"
+        def serviceTemplate = "@Service class @fullServiceName@ extends @package@.@serviceName@Grpc.@serviceName@ImplBase {}\n"
+        new FileNameFinder().getFileNames("$projectDir/src/main/java", '**/*Grpc.java').forEach {
+            def file = new File(it)
+            def relativePath = file.path.split("src/main/java/")[1]
+            def pkg = relativePath.substring(0, relativePath.lastIndexOf("/")).replace("/", ".")
+            def serviceName = relativePath.substring(relativePath.lastIndexOf("/") + 1).replace("Grpc.java", "")
+            def fullServiceName = pkg.replaceAll( "([\\._])([A-Za-z0-9])", { Object[] s -> s[2].toUpperCase() } ).capitalize() + serviceName
+
+            println "Found $relativePath: "
+            println "Parsed package = [$pkg], serviceName = [$serviceName] and fullServiceName = [$fullServiceName]"
+
+            def text = file.text
+
+            // Несмотря на то, что имя файла выглядело как класс обслуживания grpc,
+            // не обрабатывайте его, если не найдете ссылку на абстрактный класс
+            if (text.indexOf('public static abstract class') == -1) {
+                println "Skipping processing $file.path because its not a Service class."
+                return
+            }
+
+            def rpcMethodAnnotation = "@io.grpc.stub.annotations.RpcMethod("
+            Map<String, String> respTypes = new HashMap<>()
+            Map<String, String> methodTypes = new HashMap<>()
+            while (text.indexOf(rpcMethodAnnotation) >= 0) {
+                def rest = text.substring(text.indexOf(rpcMethodAnnotation) + rpcMethodAnnotation.length())
+                def descriptor = rest.substring(0, rest.indexOf(")")).split(',').inject([:]) { map, token ->
+                    token.split('=').with { map[it[0].trim()] = it[1].trim() }
+                    map
+                }
+                def method = descriptor.fullMethodName.substring("SERVICE_NAME + '/' + \"".length(), descriptor.fullMethodName.length() - 1)
+                respTypes[method] = descriptor.responseType
+                methodTypes[method] = descriptor.methodType.tokenize('.').last()
+                text = rest
+            }
+            decorate_services += callDecoratorTemplate
+                    .replace("@package@", pkg)
+                    .replace("@serviceName@", serviceName)
+                    .replace("@fullServiceName@", fullServiceName)
+                    .replace("@resp_types@", respTypes.collect { k, v -> "put(\"${k.toLowerCase()}\", $v);" }.join("\n"))
+                    .replace("@method_types@", methodTypes.collect { k, v -> "put(\"${k.toLowerCase()}\", \"$v\");" }.join("\n"))
+
+            import_services += importServiceTemplate.replace("@package@", pkg).replace("@serviceName@", serviceName)
+            services += serviceTemplate
+                    .replace("@package@", pkg)
+                    .replace("@serviceName@", serviceName)
+                    .replace("@fullServiceName@", fullServiceName)
+        }
+    }
+    from "src/template/java"
+    into "src/main/java/io/algo/grpc/wiremock"
+    filter { it.replace("@import_services@", import_services).replace("@services@", services).replace("@decorate_services@", decorate_services) }
+}
+
+compileJava.dependsOn 'generateJava'
+generateJava.dependsOn 'generateProto'
+
+bootRun {
+    systemProperty 'jdk.httpclient.allowRestrictedHeaders', 'connection,content-length,expect,host,upgrade'
+}
