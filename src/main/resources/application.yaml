@@ -2,7 +2,10 @@ spring:
   main:
     banner-mode: off
 #
-logging.level.io.algo.grpc: info
+logging:
+  level:
+    org:
+      springframework: info
 #
 grpc:
   server:
@@ -26,4 +29,7 @@ grpc:
 ---
 spring.config.activate.on-profile: load
 #
-logging.level.io.algo.grpc: WARN
+logging:
+  level:
+    org:
+      springframework: warn
