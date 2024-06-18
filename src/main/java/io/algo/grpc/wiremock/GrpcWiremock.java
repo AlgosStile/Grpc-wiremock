@@ -57,10 +57,10 @@ public class GrpcWiremock implements CommandLineRunner {
 
         public void start() throws IOException {
             NettyServerBuilder builder = NettyServerBuilder.forPort(grpcProperties.getServer().getPort())
-                .intercept(new ExceptionHandler(grpcProperties.getErrorCodeBy()))
-                .compressorRegistry(codecRegistry.compressorRegistry())
-                .decompressorRegistry(codecRegistry.decompressorRegistry())
-                .addService(ProtoReflectionService.newInstance());
+                    .intercept(new ExceptionHandler(grpcProperties.getErrorCodeBy()))
+                    .compressorRegistry(codecRegistry.compressorRegistry())
+                    .decompressorRegistry(codecRegistry.decompressorRegistry())
+                    .addService(ProtoReflectionService.newInstance());
 
             setProperties(builder);
             services.forEach(s -> builder.addService(intercept(s, new HeaderPropagationInterceptor())));
@@ -95,7 +95,7 @@ public class GrpcWiremock implements CommandLineRunner {
 
         private String summary(Server server) {
             return "gRPC server is started: " + server + "\nRegistered services:\n" +
-                server.getServices().stream().map(s -> " * " + s.getServiceDescriptor().getName()).collect(joining("\n"));
+                    server.getServices().stream().map(s -> " * " + s.getServiceDescriptor().getName()).collect(joining("\n"));
         }
 
         private void startDaemonAwaitThread() {
